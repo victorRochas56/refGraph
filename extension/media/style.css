@@ -1,0 +1,310 @@
+:root {
+    --rg-ink: var(--vscode-editor-foreground);
+    --rg-muted: var(--vscode-descriptionForeground);
+    --rg-line: var(--vscode-charts-lines);
+    --rg-border: var(--vscode-panel-border, var(--vscode-widget-border, transparent));
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--vscode-editor-background);
+    color: var(--rg-ink);
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+}
+
+.bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--rg-border);
+}
+
+#scanbar {
+    background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.spacer {
+    flex: 1;
+}
+
+button {
+    padding: 3px 10px;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    font-family: inherit;
+    font-size: inherit;
+    cursor: pointer;
+}
+
+button:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.seg {
+    display: inline-flex;
+}
+
+.seg button {
+    border-radius: 0;
+}
+
+.seg button:first-child {
+    border-radius: 2px 0 0 2px;
+}
+
+.seg button:last-child {
+    border-radius: 0 2px 2px 0;
+}
+
+.seg button.active {
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+}
+
+input[type="text"],
+input[type="number"] {
+    padding: 3px 6px;
+    border: 1px solid var(--vscode-input-border, transparent);
+    border-radius: 2px;
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    font-family: inherit;
+    font-size: inherit;
+}
+
+input:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+}
+
+input[type="text"] {
+    width: 180px;
+}
+
+input[type="number"] {
+    width: 56px;
+}
+
+#topFilesWrap,
+.field {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--rg-muted);
+}
+
+#directory {
+    width: 120px;
+    font-family: var(--vscode-editor-font-family);
+}
+
+#btn-browse {
+    padding: 3px 6px;
+    margin-left: -3px;
+}
+
+#files {
+    width: 150px;
+    font-family: var(--vscode-editor-font-family);
+}
+
+#files.invalid {
+    outline: 1px solid var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+}
+
+#identifier {
+    width: 70px;
+}
+
+#separator {
+    width: 36px;
+    font-family: var(--vscode-editor-font-family);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+#stats,
+#status,
+#legend {
+    color: var(--rg-muted);
+    font-size: 11px;
+}
+
+#legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding: 4px 10px;
+}
+
+#legend:empty {
+    display: none;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.swatch.circle {
+    border-radius: 50%;
+    background: var(--rg-ink);
+}
+
+.swatch.dashed {
+    width: 16px;
+    height: 0;
+    border-top: 2px dashed var(--rg-line);
+}
+
+#canvas {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+#canvas svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+#status {
+    padding: 4px 10px;
+    border-top: 1px solid var(--rg-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.message {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    text-align: center;
+    color: var(--rg-muted);
+}
+
+.message.error {
+    color: var(--vscode-errorForeground);
+}
+
+#tooltip {
+    position: fixed;
+    z-index: 10;
+    display: none;
+    max-width: 380px;
+    padding: 6px 8px;
+    border: 1px solid var(--vscode-editorHoverWidget-border);
+    border-radius: 3px;
+    background: var(--vscode-editorHoverWidget-background);
+    color: var(--vscode-editorHoverWidget-foreground);
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: none;
+}
+
+#tooltip .t-title {
+    font-weight: 600;
+}
+
+#tooltip .t-muted {
+    color: var(--rg-muted);
+}
+
+#tooltip code {
+    font-family: var(--vscode-editor-font-family);
+    font-size: 11px;
+}
+
+/* force graph */
+.link {
+    stroke: var(--rg-line);
+    stroke-opacity: 0.55;
+}
+
+.link.decl {
+    stroke-dasharray: 3 3;
+}
+
+.node {
+    cursor: pointer;
+}
+
+.node.symbol .shape {
+    fill: var(--rg-ink);
+    fill-opacity: 0.85;
+    stroke: var(--vscode-editor-background);
+    stroke-width: 1.5px;
+}
+
+.node.file .shape {
+    stroke: var(--vscode-editor-background);
+    stroke-width: 1.5px;
+}
+
+.node text {
+    fill: var(--rg-ink);
+    font-size: 10px;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: var(--vscode-editor-background);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+}
+
+.node.file text {
+    font-weight: 600;
+}
+
+/* chord */
+.arc {
+    cursor: pointer;
+    stroke: var(--vscode-editor-background);
+    stroke-width: 1px;
+}
+
+.ribbon {
+    fill-opacity: 0.65;
+    stroke: var(--vscode-editor-background);
+    stroke-width: 2px;
+}
+
+.ribbon.hot {
+    fill-opacity: 0.99;
+}
+
+.arc-label {
+    fill: var(--rg-ink);
+    font-size: 10px;
+    pointer-events: none;
+}
+
+.dim {
+    opacity: 0.15;
+}

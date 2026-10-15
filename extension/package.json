@@ -1,0 +1,77 @@
+{
+  "name": "refgraph",
+  "displayName": "RefGraph",
+  "description": "Visualize symbol references as a force-directed graph and a file-coupling chord diagram",
+  "version": "0.0.1",
+  "publisher": "victor",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "refgraph.showForceGraph",
+        "title": "RefGraph: Show Force Graph"
+      },
+      {
+        "command": "refgraph.showChordDiagram",
+        "title": "RefGraph: Show File Coupling Chord"
+      },
+      {
+        "command": "refgraph.refresh",
+        "title": "RefGraph: Refresh"
+      }
+    ],
+    "configuration": {
+      "title": "RefGraph",
+      "properties": {
+        "refgraph.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a custom refgraph executable. Leave empty to use the scanner bundled with the extension. Relative paths are resolved against the workspace folder, then PATH."
+        },
+        "refgraph.directory": {
+          "type": "string",
+          "default": ".",
+          "description": "Directory to scan, relative to the workspace folder."
+        },
+        "refgraph.filesPattern": {
+          "type": "string",
+          "default": "",
+          "description": "Regular expression a file's path (relative to the scan directory, with / separators) must match to be scanned. JavaScript syntax and case-insensitive, like the VS Code search box; unanchored, so use ^ and $ to pin it. Empty scans every file. Example: \\.(c|cc|cpp|h|hpp)$"
+        },
+        "refgraph.identifier": {
+          "type": "string",
+          "default": "struct",
+          "description": "Declaration keyword to look for (e.g. struct, class)."
+        },
+        "refgraph.separator": {
+          "type": "string",
+          "default": " ",
+          "description": "Separator between the keyword and the symbol name."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build:scanner": "node scripts/build-scanner.js",
+    "vscode:prepublish": "npm run compile && npm run build:scanner",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "d3": "^7.9.0"
+  }
+}
