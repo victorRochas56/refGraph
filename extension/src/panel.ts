@@ -18,7 +18,12 @@ interface ScanMessage {
     separator: string;
 }
 
-type WebviewMessage = { type: 'ready' } | { type: 'browse' } | ScanMessage | OpenMessage;
+interface ShowPlanMessage {
+    type: 'showPlan';
+    text: string;
+}
+
+type WebviewMessage = { type: 'ready' } | { type: 'browse' } | ScanMessage | OpenMessage | ShowPlanMessage;
 
 export class RefGraphPanel {
     public static current: RefGraphPanel | undefined;
@@ -113,6 +118,12 @@ export class RefGraphPanel {
             case 'browse':
                 await this.browseDirectory();
                 break;
+            case 'showPlan': {
+                // fallback when the webview cannot reach the clipboard
+                const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: msg.text });
+                await vscode.window.showTextDocument(doc, { viewColumn: vscode.ViewColumn.One });
+                break;
+            }
             case 'open':
                 await this.open(msg.file, msg.line);
                 break;
@@ -227,10 +238,15 @@ export class RefGraphPanel {
         <div class="seg" role="group" aria-label="View">
             <button id="btn-force" type="button">Force graph</button>
             <button id="btn-chord" type="button">File coupling</button>
+            <button id="btn-split" type="button">Split header</button>
         </div>
         <input id="filter" type="text" placeholder="Filter symbols…" aria-label="Filter symbols" spellcheck="false">
         <label id="topFilesWrap" class="field" title="Keep only the N most coupled files">Top files <input id="topFiles" type="number" min="2" max="500" step="1" value="40"></label>
         <label id="minSharedWrap" class="field" title="Hide file pairs that share fewer than N symbols; the remaining ribbons get the freed space">Min shared <input id="minShared" type="number" min="1" max="999" step="1" value="1"></label>
+        <label id="splitFileWrap" class="field" title="File whose declarations should be grouped into new headers">Header <select id="splitFile" aria-label="Header to split"></select></label>
+        <label id="thresholdWrap" class="field" title="Two symbols are grouped when the files needing them overlap at least this much (Jaccard index). 1 = identical consumers only.">Similarity ≥ <input id="threshold" type="range" min="0.05" max="1" step="0.05" aria-label="Similarity threshold"><span id="thresholdValue"></span></label>
+        <label id="mergeDepsWrap" class="field" title="Put each symbol in the same group as the symbols that use it, so no new header needs to include another"><input id="mergeDeps" type="checkbox"> keep dependencies together</label>
+        <button id="btn-copyPlan" type="button" title="Copy the groups as a Markdown split plan">Copy plan</button>
     </div>
     <div id="legend"></div>
     <div id="canvas"></div>

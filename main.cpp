@@ -11,6 +11,7 @@
 #include <functional>
 #include <optional>
 #include <regex>
+#include <set>
 #include <unordered_map>
 
                     // symbol -> filepath of all its refs
@@ -24,19 +25,106 @@ struct Declaration
                     // symbol -> where it was declared (last one wins)
 std::unordered_map<std::string, Declaration> declarations;
 
+struct DeclRange
+{
+    std::size_t namePos;    // offset of the symbol name
+    std::size_t begin;      // offset of the keyword
+    std::size_t end;        // offset of the closing brace
+    std::string symbol;
+};
+                    // file -> extent of every declaration body in it
+std::unordered_map<std::filesystem::path, std::vector<DeclRange>> declRanges;
+                    // symbol -> symbols referenced inside its declaration body
+std::unordered_map<std::string, std::set<std::string>> uses;
+
 std::string identifier = "struct";
 std::filesystem::path rootPath;
 bool jsonOutput = false;
                     // only files whose relative path matches are scanned
 std::optional<std::regex> fileFilter;
 
-void findDeclarations(const std::filesystem::path& file)
+static bool isIdentChar(char c)
+{
+    return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+}
+
+static bool isIdentifier(const std::string& s)
+{
+    return !s.empty() && !std::isdigit(static_cast<unsigned char>(s[0])) &&
+           std::all_of(s.begin(), s.end(), isIdentChar);
+}
+
+// Replaces comments and string/char literals with spaces, keeping newlines and offsets,
+// so neither pass sees a declaration or a reference inside them.
+static std::string stripCommentsAndLiterals(std::string s)
+{
+    auto blank = [&](std::size_t from, std::size_t to) {
+        for(std::size_t k = from; k < to && k < s.size(); k++)
+            if(s[k] != '\n')
+                s[k] = ' ';
+    };
+
+    std::size_t i = 0;
+    while(i < s.size())
+    {
+        const char c = s[i];
+        if(c == '/' && i + 1 < s.size() && s[i + 1] == '/')
+        {
+            std::size_t e = s.find('\n', i);
+            if(e == std::string::npos)
+                e = s.size();
+            blank(i, e);
+            i = e;
+        }
+        else if(c == '/' && i + 1 < s.size() && s[i + 1] == '*')
+        {
+            std::size_t e = s.find("*/", i + 2);
+            e = (e == std::string::npos) ? s.size() : e + 2;
+            blank(i, e);
+            i = e;
+        }
+        else if(c == '"' || c == '\'')
+        {
+            std::size_t e = i + 1;
+            while(e < s.size() && s[e] != c && s[e] != '\n')
+                e += (s[e] == '\\') ? 2 : 1;
+            blank(i + 1, e);    // the quotes stay, so tokens around them remain separated
+            i = std::min(e + 1, s.size());
+        }
+        else
+            i++;
+    }
+    return s;
+}
+
+static bool readStripped(const std::filesystem::path& file, std::string& out)
 {
     std::ifstream in(file, std::ios::binary);
     if(!in)
-        return;
+        return false;
+    out = stripCommentsAndLiterals(std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>()));
+    return true;
+}
 
-    std::string content((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+// offset of the '}' matching the '{' at `open` (content already stripped)
+static std::size_t findBodyEnd(const std::string& s, std::size_t open)
+{
+    int depth = 0;
+    for(std::size_t i = open; i < s.size(); i++)
+    {
+        if(s[i] == '{')
+            depth++;
+        else if(s[i] == '}' && --depth == 0)
+            return i;
+    }
+    return s.size();
+}
+
+void findDeclarations(const std::filesystem::path& file)
+{
+    std::string content;
+    if(!readStripped(file, content))
+        return;
 
     // running line counter, pos only ever moves forward
     uint32_t line = 1;
@@ -49,73 +137,90 @@ void findDeclarations(const std::filesystem::path& file)
         line += std::count(content.begin() + lineCursor, content.begin() + pos, '\n');
         lineCursor = pos;
 
-        int i = 0;
-        char c = content.at(pos + identifier.size() + i);
-        std::string symbol = "";
-        while(c != '\n' && c != ' ' && c != ';' && ((pos + identifier.size() + i + 1) < content.size()))
-        {
-            symbol += c;
-            i++;
-            c = content.at(pos + identifier.size() + i);
-        }
-        if(!symbol.empty() && 
-            ((content.at(pos + identifier.size() + i) == ' ' &&
-              content.at(pos + identifier.size() + i + 1) == '{') ||
-              content.at(pos + identifier.size() + i) == '\n'))
-        {
-            symbols[symbol].clear();
-            declarations[symbol] = {file, line};
-        }
-    }
-}
+        // the keyword itself must start a token ("mystruct Foo" is not a declaration)
+        if(pos > 0 && isIdentChar(content[pos - 1]))
+            continue;
 
-static bool isIdentChar(char c)
-{
-    return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
+        const std::size_t nameStart = pos + identifier.size();
+        std::size_t nameEnd = nameStart;
+        while(nameEnd < content.size() && isIdentChar(content[nameEnd]))
+            nameEnd++;
+        const std::string symbol = content.substr(nameStart, nameEnd - nameStart);
+        if(!isIdentifier(symbol))
+            continue;
+
+        // A definition reaches '{' before any ';'. Between the name and the brace there is
+        // nothing, "final", or a base clause; anything else ("struct Foo foo{}") is a variable.
+        const std::size_t open = content.find_first_of("{;", nameEnd);
+        if(open == std::string::npos || content[open] != '{')
+            continue;
+        const std::size_t first = content.find_first_not_of(" \t\r\n", nameEnd);
+        if(first < open && content[first] != ':' && content.compare(first, 5, "final") != 0)
+            continue;
+
+        symbols[symbol].clear();
+        declarations[symbol] = {file, line};
+        declRanges[file].push_back({nameStart, pos, findBodyEnd(content, open), symbol});
+    }
 }
 
 void findReferences(const std::filesystem::path& file)
 {
-    std::ifstream in(file, std::ios::binary);
-    if(!in)
-        return;
-
     std::size_t maxLen = 0;
     for(const auto& [symbol, refs] : symbols)
         maxLen = std::max(maxLen, symbol.size());
     if(maxLen == 0)
         return;
 
-    std::string window;
-    window.reserve(maxLen + 1);
+    std::string content;
+    if(!readStripped(file, content))
+        return;
+
+    const std::vector<DeclRange>* ranges = nullptr;
+    if(auto found = declRanges.find(file); found != declRanges.end())
+        ranges = &found->second;
+
     std::unordered_map<std::string, std::size_t> counts;
 
-    for(std::istreambuf_iterator<char> it(in), end; it != end; ++it)
+    // A reference is a whole identifier token equal to a symbol; "MyFoo" is not "Foo".
+    for(std::size_t i = 0; i < content.size();)
     {
-        const char c = *it;
-
-        if(c == ' ' || c == '&')
+        if(!isIdentChar(content[i]))
         {
-            // A suffix only counts if it starts on a token boundary, so "MyFoo" does not match "Foo".
-            // The window keeps one extra char before the longest candidate to check that boundary.
-            const std::size_t maxCandidate = std::min(window.size(), maxLen);
-            for(std::size_t len = 1; len <= maxCandidate; len++)
-            {
-                if(len < window.size() && isIdentChar(window[window.size() - len - 1]))
-                    continue;
+            i++;
+            continue;
+        }
+        const std::size_t start = i;
+        while(i < content.size() && isIdentChar(content[i]))
+            i++;
+        if(i - start > maxLen)
+            continue;
 
-                std::string candidate = window.substr(window.size() - len);
-                if(symbols.count(candidate))
-                {
-                    counts[candidate]++;
-                    symbols[candidate][file]++;
-                }
+        const std::string token = content.substr(start, i - start);
+        if(!symbols.count(token))
+            continue;
+
+        // The declaration's own name is not a use. A use inside another declaration's
+        // body is a dependency of that (innermost) declaration.
+        const DeclRange* inside = nullptr;
+        bool isDeclaration = false;
+        if(ranges)
+        {
+            for(const DeclRange& r : *ranges)
+            {
+                if(r.namePos == start)
+                    isDeclaration = true;
+                else if(r.begin <= start && start <= r.end && (!inside || r.begin > inside->begin))
+                    inside = &r;
             }
         }
+        if(isDeclaration)
+            continue;
 
-        window += c;
-        if(window.size() > maxLen + 1)
-            window.erase(0, 1);
+        counts[token]++;
+        symbols[token][file]++;
+        if(inside && inside->symbol != token)
+            uses[inside->symbol].insert(token);
     }
 
     if(jsonOutput)
@@ -185,6 +290,18 @@ void printJson()
                       << "\", \"line\": " << decl->second.line << "}, ";
         else
             std::cout << "\"decl\": null, ";
+
+        std::cout << "\"uses\": [";
+        if(auto used = uses.find(symbol); used != uses.end())
+        {
+            bool firstUse = true;
+            for(const std::string& other : used->second)
+            {
+                std::cout << (firstUse ? "" : ", ") << "\"" << jsonEscape(other) << "\"";
+                firstUse = false;
+            }
+        }
+        std::cout << "], ";
 
         // sort refs by path so the output is stable between runs
         std::vector<std::pair<std::string, uint32_t>> sortedRefs;
