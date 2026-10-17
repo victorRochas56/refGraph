@@ -7,14 +7,19 @@
             "script": "compile",
             "path": "extension",
             "problemMatcher": "$tsc",
-            "presentation": { "reveal": "silent" }
+            "presentation": {
+                "reveal": "silent"
+            }
         },
         {
             "label": "refgraph: build scanner",
             "type": "shell",
             "command": "g++ -std=c++17 -O2 -Wall -o refGraph main.cpp",
             "problemMatcher": "$gcc",
-            "group": { "kind": "build", "isDefault": true }
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }

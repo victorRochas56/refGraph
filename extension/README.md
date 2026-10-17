@@ -36,6 +36,10 @@ npm run build:scanner   # compiles ../main.cpp into bin/<platform>-<arch>/
 npm run compile
 ```
 
+`build:scanner` uses `g++`, or on Windows MSVC (`cl`) when a Visual Studio 2022 / Build Tools install
+with the *Desktop development with C++* workload is found. Set `CXX` to choose a compiler explicitly.
+GCC must be 9 or newer: the MinGW-w64 8.1 release cannot compile `<filesystem>` on Windows.
+
 Then press F5 from the repository root (the launch config in `.vscode/launch.json` opens the repo as
 the workspace of the extension host) and run **RefGraph: Show Force Graph** from the command palette.
 

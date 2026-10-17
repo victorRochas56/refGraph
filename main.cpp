@@ -46,7 +46,7 @@ void findDeclarations(const std::filesystem::path& file)
         pos != std::string::npos;
         pos = content.find(identifier, pos + identifier.size()))
     {
-        line += std::count(content.begin() + lineCursor, content.begin() + pos, '\n');
+        line += static_cast<uint32_t>(std::count(content.begin() + lineCursor, content.begin() + pos, '\n'));
         lineCursor = pos;
 
         int i = 0;
