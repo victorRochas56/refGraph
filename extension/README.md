@@ -2,7 +2,7 @@
 
 Visualizes the output of the `refGraph` scanner (`../main.cpp`) inside VS Code.
 
-Two views, switchable from the panel toolbar:
+Three views, switchable from the panel toolbar:
 
 - **Force graph** – symbols (circles) linked to the files that reference them (squares, coloured by
   top-level directory). Node size is the total reference count, edge width the per-file count, and a
@@ -13,6 +13,16 @@ Two views, switchable from the panel toolbar:
   which symbols the pair shares, click an arc to open the file. **Top files** caps the ring at the N
   most coupled files and **Min shared** hides pairs sharing fewer than N symbols — both make the
   remaining ribbons thicker, since ribbons split each arc proportionally.
+- **Split header** – for one declaring file (pick it in **Header**), groups its symbols by which
+  files need them, to suggest how to split a large header. Two symbols are similar when the sets of
+  files consuming them overlap (Jaccard index); clusters are formed by average-linkage agglomeration
+  down to the **Similarity ≥** threshold (1 = only identical consumer sets, lower = coarser groups).
+  A symbol used inside another declaration of the same file (`struct A { B b; }`) inherits A's
+  consumers, since any file needing A needs B too; those dependencies are drawn as dashed arrows,
+  and **keep dependencies together** merges the groups they join, so no new header must include
+  another. Symbols referenced nowhere outside the header are listed as **Unused**. The side panel
+  lists each group with its consumer files; **Copy plan** puts the whole thing on the clipboard as
+  Markdown.
 
 The top row configures the scanner and is saved to the workspace settings; press Enter or **Scan**
 to re-run with it:
@@ -74,3 +84,12 @@ TARGET=win32-x64 CXX=x86_64-w64-mingw32-g++ npm run build:scanner
 
 The scanner is run as `<binaryPath> <directory> <identifier> <separator> --json [--files <regex>]`
 with the workspace folder as working directory.
+
+## What the scanner counts
+
+Comments and string literals are ignored. A declaration is `<keyword><separator>Name` followed by
+`{`, optionally after `final` or a base clause (`: public Base`); `struct Name;` and
+`struct Name var{}` are not declarations. A reference is a whole identifier token equal to a known
+symbol, wherever it appears (`Name*`, `vector<Name>`, `Name::x` all count; `MyName` does not).
+The declaration's own name is not a reference. A reference inside another declaration's body is
+recorded as that declaration *using* the symbol (`uses` in the JSON), which the split view relies on.

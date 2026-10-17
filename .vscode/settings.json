@@ -1,5 +1,5 @@
 {
-    "refgraph.directory": "/home/victor/Geoshape-2/ps-cad-dmu/Foundation",
-    "refgraph.identifier": "struct",
+    "refgraph.directory": "/home/victor/Geoshape-2/ps-cad-dmu/Foundation/PSCADDMUOperator",
+    "refgraph.identifier": "class",
     "refgraph.filesPattern": "^(?!.*(^|/)(build|TESTS\\.m|thirdparty|dependencylib|install|coverage)/).*\\.(c|cpp|h|hpp)$"
 }
